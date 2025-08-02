@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const Message = require('../models/Message'); // Importa el modelo de mensaje
 const Conversation = require('../models/Conversation'); // Importa el modelo de conversación
-const authMiddleware = require('../middleware/authMiddleware').authMiddleware; // Importa el middleware
+const authMiddleware = require('../middleware/authMiddleware'); // Importa el middleware de autenticación
 const { admin } = require('../firebaseAdmin'); // Para Firebase Admin SDK y Firestore
 
 const db = admin.firestore(); // Inicializa Firestore

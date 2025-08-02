@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs'); // Para encriptar contraseñas
 const jwt = require('jsonwebtoken'); // Para tokens JWT
 const { admin } = require('../firebaseAdmin'); // Para interactuar con Firebase Admin SDK
 const User = require('../models/User'); // Importa el modelo de usuario de Mongoose
-const authMiddleware = require('../middleware/authMiddleware').authMiddleware; // Importa el middleware de autenticación
+const authMiddleware = require('../middleware/authMiddleware');
 
 // --- RUTA: REGISTRO DE USUARIO (POST /api/users/register) ---
 router.post('/register', async (req, res) => {
