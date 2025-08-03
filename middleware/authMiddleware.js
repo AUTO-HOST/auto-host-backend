@@ -1,39 +1,39 @@
-const jwt = require('jsonwebtoken'); // Necesitas tener 'jsonwebtoken' instalado (npm install jsonwebtoken)
+const jwt = require('jsonwebtoken'); // Aunque se importa, solo para la estructura. No se usa para verificar idTokens de Firebase aquí.
+const { admin } = require('../firebaseAdmin'); // IMPORTANTE: Importamos la instancia de Firebase Admin SDK
 
-const authMiddleware = (req, res, next) => {
-    // 1. Obtener el token del encabezado de la petición
-    // El token generalmente viene como "Bearer TOKEN_LARGO_AQUI"
+const authMiddleware = async (req, res, next) => { // ¡CAMBIADO a 'async' porque la verificación es asíncrona!
     const token = req.header('Authorization');
 
-    // 2. Verificar si no hay token
     if (!token) {
-        // 401 Unauthorized: No hay token, el usuario no ha enviado credenciales
         return res.status(401).json({ msg: 'No hay token de autenticación, autorización denegada' });
     }
 
-    // 3. Quitar la palabra "Bearer " del token
-    // (Asegurarse de que el token es lo que esperamos)
     const tokenWithoutBearer = token.startsWith('Bearer ') ? token.slice(7) : token;
 
     try {
-        // 4. Verificar el token
-        // Usa el JWT_SECRET que tienes configurado en tus variables de entorno (local y en Render)
-        const decoded = jwt.verify(tokenWithoutBearer, process.env.JWT_SECRET);
+        // --- CAMBIO CRÍTICO AQUÍ: Usar Firebase Admin SDK para verificar el idToken ---
+        const decodedToken = await admin.auth().verifyIdToken(tokenWithoutBearer);
+        // El 'decodedToken' contiene el payload del idToken, incluyendo el UID de Firebase
+        console.log("Token de Firebase verificado con éxito. UID:", decodedToken.uid);
 
-        // 5. Adjuntar el objeto de usuario decodificado a la petición (req.user)
-        // Esto hace que la información del usuario esté disponible en las rutas protegidas
-        req.user = decoded.user; // Asumiendo que el payload de tu token tiene una propiedad 'user'
+        // Adjuntar información del usuario decodificada a la petición (req.user)
+        // Usamos decodedToken.uid para userId, ya que Firebase Admin SDK lo garantiza
+        req.user = { userId: decodedToken.uid, email: decodedToken.email };
         
-        // 6. Pasar al siguiente middleware o a la función de ruta
-        next();
+        next(); // Pasar al siguiente middleware o a la función de ruta
 
     } catch (err) {
-        // Manejar diferentes errores del token
-        if (err.name === 'TokenExpiredError') {
-            return res.status(401).json({ msg: 'Token expirado' });
+        console.error("Error al verificar idToken de Firebase con Admin SDK:", err);
+        // Manejar errores específicos de Firebase Admin SDK o JWT
+        let errorMessage = "Token no válido, autorización denegada.";
+        if (err.code === 'auth/id-token-expired') {
+            errorMessage = "Token expirado. Por favor, inicia sesión de nuevo.";
+        } else if (err.code === 'auth/argument-error' || err.code === 'auth/invalid-token') {
+            errorMessage = "Token no válido o mal formado.";
+        } else if (err.code) { // Otros errores de Firebase Auth Admin
+            errorMessage = `Error de autenticación: ${err.code}.`;
         }
-        // 401 Unauthorized: Token no válido (firma incorrecta, formato incorrecto, etc.)
-        res.status(401).json({ msg: 'Token no válido, autorización denegada' });
+        res.status(401).json({ msg: errorMessage });
     }
 };
 
