@@ -31,9 +31,9 @@ router.post('/',
 
     try {
       const sellerId = req.user.userId;
-      // --- AÑADIDA AQUÍ: Inicialización del bucket dentro de la ruta POST ---
-      const bucket = admin.storage().bucket(process.env.FIREBASE_STORAGE_BUCKET);
-      // --- FIN DE LA LÍNEA AÑADIDA ---
+      // --- AÑADIDA AQUÍ: Inicialización del bucket dentro de la ruta POST ---
+      const bucket = admin.storage().bucket(process.env.FIREBASE_STORAGE_BUCKET);
+      // --- FIN DE LA LÍNEA AÑADIDA ---
 
       if (!req.file) {
         return res.status(400).json({ message: 'No se ha subido ninguna imagen.' });
@@ -156,9 +156,9 @@ router.put('/:id', authMiddleware, upload.single('image'), async (req, res) => {
         const productId = req.params.id;
         const userId = req.user.userId;
 
-        // --- AÑADIDA AQUÍ: Inicialización del bucket dentro de la ruta PUT ---
-        const bucket = admin.storage().bucket(process.env.FIREBASE_STORAGE_BUCKET);
-        // --- FIN DE LA LÍNEA AÑADIDA ---
+        // --- AÑADIDA AQUÍ: Inicialización del bucket dentro de la ruta PUT ---
+        const bucket = admin.storage().bucket(process.env.FIREBASE_STORAGE_BUCKET);
+        // --- FIN DE LA LÍNEA AÑADIDA ---
 
         const product = await Product.findById(productId);
 
