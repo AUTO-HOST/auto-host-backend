@@ -9,21 +9,9 @@ const { admin } = require('../firebaseAdmin'); // Ruta relativa desde routes/
 const authMiddleware = require('../middleware/authMiddleware');
 // --- FIN DEL CAMBIO IMPORTANTE ---
 
-const bucket = admin.storage().bucket(process.env.FIREBASE_STORAGE_BUCKET); // Usa process.env.FIREBASE_STORAGE_BUCKET
+// ¡ELIMINADA LA LÍNEA GLOBAL DE BUCKET! Ahora se inicializa dentro de las rutas.
+// const bucket = admin.storage().bucket(process.env.FIREBASE_STORAGE_BUCKET);
 
-// Quita o comenta este bloque try-catch, ya no es necesario con la importación directa.
-// Si deseas mantener el manejo de errores de inicialización, intégralo en firebaseAdmin.js
-/*
-let authMiddleware; // Esto ya no es necesario
-try {
-  ({ authMiddleware } = require('../middleware/authMiddleware')); // <<-- ESTA ERA LA LÍNEA PROBLEMÁTICA
-  if (typeof authMiddleware !== 'function' || !admin) {
-    throw new Error('Falló la inicialización de un módulo crítico (authMiddleware o firebaseAdmin).');
-  }
-} catch(e) {
-  console.error("--- ERROR CATASTRÓFICO EN productRoutes.js ---", e.message);
-}
-*/
 
 // Configuración de Multer
 const storage = multer.memoryStorage();
@@ -43,6 +31,9 @@ router.post('/',
 
     try {
       const sellerId = req.user.userId;
+      // --- AÑADIDA AQUÍ: Inicialización del bucket dentro de la ruta POST ---
+      const bucket = admin.storage().bucket(process.env.FIREBASE_STORAGE_BUCKET);
+      // --- FIN DE LA LÍNEA AÑADIDA ---
 
       if (!req.file) {
         return res.status(400).json({ message: 'No se ha subido ninguna imagen.' });
@@ -164,6 +155,10 @@ router.put('/:id', authMiddleware, upload.single('image'), async (req, res) => {
     try {
         const productId = req.params.id;
         const userId = req.user.userId;
+
+        // --- AÑADIDA AQUÍ: Inicialización del bucket dentro de la ruta PUT ---
+        const bucket = admin.storage().bucket(process.env.FIREBASE_STORAGE_BUCKET);
+        // --- FIN DE LA LÍNEA AÑADIDA ---
 
         const product = await Product.findById(productId);
 
