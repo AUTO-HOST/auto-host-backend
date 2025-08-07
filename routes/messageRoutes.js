@@ -1,18 +1,31 @@
-// backend/routes/messageRoutes.js
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const { admin } = require('../firebaseAdmin');
+const Product = require('../models/Product'); // Asegúrate que la ruta a tu modelo es correcta
 
 const db = admin.firestore();
 
-// --- RUTA: ENVIAR MENSAJE (POST /api/messages/send) ---
+// --- RUTA: ENVIAR MENSAJE (VERSIÓN CORREGIDA Y MÁS SEGURA) ---
 router.post('/send', authMiddleware, async (req, res) => {
     try {
-        const { receiverId, productId, productName, content } = req.body;
-        const senderId = req.user.userId; // CORREGIDO: de uid a userId
+        // Ya no necesitamos que el frontend nos envíe el receiverId
+        const { productId, productName, content } = req.body;
+        const senderId = req.user.userId; // CORREGIDO
         const senderEmail = req.user.email;
 
+        // --- NUEVA LÓGICA ---
+        // 1. Buscar el producto para encontrar al vendedor
+        const product = await Product.findById(productId);
+
+        if (!product) {
+            return res.status(404).json({ message: "Producto no encontrado." });
+        }
+        // Obtenemos el ID del vendedor directamente desde el producto
+        const receiverId = product.user.toString();
+        // --- FIN DE LA NUEVA LÓGICA ---
+
+        // El resto del código para buscar o crear la conversación
         let conversationQuery = await db.collection('conversations')
             .where('productId', '==', productId)
             .where('participants', 'array-contains', senderId)
@@ -25,19 +38,23 @@ router.post('/send', authMiddleware, async (req, res) => {
 
         let conversationRef;
         if (!conversationDoc) {
+            // Crear nueva conversación si no existe
             conversationRef = await db.collection('conversations').add({
                 productId: productId,
                 productName: productName,
                 participants: [senderId, receiverId],
+                participantEmails: [senderEmail, product.sellerEmail], // Asumiendo que tienes sellerEmail en tu producto
                 lastMessageAt: admin.firestore.FieldValue.serverTimestamp(),
             });
         } else {
+            // Usar conversación existente
             conversationRef = db.collection('conversations').doc(conversationDoc.id);
             await conversationRef.update({
                 lastMessageAt: admin.firestore.FieldValue.serverTimestamp()
             });
         }
 
+        // Añadir el nuevo mensaje a la subcolección
         const messagesSubcollectionRef = conversationRef.collection('messages');
         const newMessageRef = await messagesSubcollectionRef.add({
             senderId: senderId,
@@ -54,12 +71,12 @@ router.post('/send', authMiddleware, async (req, res) => {
     }
 });
 
-// --- RUTA: OBTENER CONVERSACIONES DEL USUARIO (GET /api/messages/conversations) ---
+// --- RUTA: OBTENER CONVERSACIONES DEL USUARIO ---
 router.get('/conversations', authMiddleware, async (req, res) => {
     try {
-        const userId = req.user.userId; // CORREGIDO: de uid a userId
+        const userId = req.user.userId; // CORREGIDO
 
-        if (!userId) { // Añadida una validación para seguridad
+        if (!userId) {
             return res.status(400).json({ message: 'No se pudo verificar la identidad del usuario.' });
         }
 
@@ -78,11 +95,11 @@ router.get('/conversations', authMiddleware, async (req, res) => {
     }
 });
 
-// --- RUTA: OBTENER MENSAJES DE UNA CONVERSACIÓN ESPECÍFICA (GET /api/messages/:productId/:otherUserId) ---
+// --- RUTA: OBTENER MENSAJES DE UNA CONVERSACIÓN ESPECÍFICA ---
 router.get('/:productId/:otherUserId', authMiddleware, async (req, res) => {
     try {
         const { productId, otherUserId } = req.params;
-        const userId = req.user.userId; // CORREGIDO: de uid a userId
+        const userId = req.user.userId; // CORREGIDO
 
         let conversationQuery = await db.collection('conversations')
             .where('productId', '==', productId)
