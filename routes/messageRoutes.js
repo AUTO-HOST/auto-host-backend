@@ -63,7 +63,7 @@ router.post('/send', authMiddleware, async (req, res) => {
     }
 });
 
-// --- RUTA: OBTENER CONVERSACIONES DEL USUARIO (MEJORADA) ---
+// --- RUTA: OBTENER CONVERSACIONES DEL USUARIO (CON FILTRO DE SEGURIDAD) ---
 router.get('/conversations', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.userId;
@@ -72,23 +72,30 @@ router.get('/conversations', authMiddleware, async (req, res) => {
             .orderBy('lastMessageAt', 'desc')
             .get();
 
-        const conversations = conversationsSnapshot.docs.map(doc => {
-            const data = doc.data();
-            const otherParticipantId = data.participants.find(p => p !== userId);
-            return {
-                id: doc.id,
-                ...data,
-                otherParticipantId: otherParticipantId,
-                otherParticipantEmail: data.participantInfo[otherParticipantId],
-                lastMessageAt: data.lastMessageAt.toDate().toISOString()
-            };
-        });
+        const conversations = conversationsSnapshot.docs
+            // Paso 1: Convertir todos los documentos a objetos
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            // Paso 2: Filtrar y quedarse solo con las conversaciones que SÍ tienen el campo 'participants'
+            .filter(conv => conv.participants && Array.isArray(conv.participants))
+            // Paso 3: Mapear los datos finales de las conversaciones válidas
+            .map(conv => {
+                const otherParticipantId = conv.participants.find(p => p !== userId);
+                return {
+                    id: conv.id,
+                    ...conv,
+                    otherParticipantId: otherParticipantId,
+                    otherParticipantEmail: conv.participantInfo ? conv.participantInfo[otherParticipantId] : 'Usuario desconocido',
+                    lastMessageAt: conv.lastMessageAt.toDate().toISOString()
+                };
+            });
+
         res.status(200).json(conversations);
     } catch (error) {
         console.error('Error al obtener conversaciones (Firestore):', error);
         res.status(500).json({ message: 'Error interno del servidor al obtener conversaciones.' });
     }
 });
+
 
 // --- RUTA: ENVIAR RESPUESTA ---
 router.post('/reply/:conversationId', authMiddleware, async (req, res) => {
