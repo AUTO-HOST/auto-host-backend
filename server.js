@@ -55,6 +55,12 @@ try {
   app.use('/api/messages', messageRoutes);
   console.log("✅ Rutas de mensajes (/api/messages) cargadas.");
 
+  // --- ESTA ES LA PARTE QUE FALTABA EN TU CÓDIGO ---
+  const orderRoutes = require('./routes/orderRoutes');
+  app.use('/api/orders', orderRoutes);
+  console.log("✅ Rutas de pedidos (/api/orders) cargadas.");
+  // --- FIN DE LA PARTE QUE FALTABA ---
+
   console.log("🎉 Todas las rutas se cargaron exitosamente.");
 
 } catch (error) {

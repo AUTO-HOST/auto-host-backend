@@ -41,6 +41,12 @@ const productSchema = mongoose.Schema(
       required: true,
       default: 1,
     },
+    // --- LÍNEA AÑADIDA ---
+    isAvailable: {
+      type: Boolean,
+      default: true,
+    },
+    // --- FIN DE LÍNEA AÑADIDA ---
     isOnOffer: {
       type: Boolean,
       default: false,
