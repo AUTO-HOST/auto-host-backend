@@ -16,19 +16,13 @@ router.post('/', authMiddleware, async (req, res) => {
     try {
         // --- PARTE 1: Actualizar el stock en MongoDB ---
         for (const item of items) {
-            // Buscamos cada producto en nuestra base de datos de MongoDB
             const product = await Product.findById(item.productId);
 
             if (product) {
-                // Reducimos el stock
                 product.stock -= item.quantity;
-
-                // Si el stock llega a 0, lo marcamos como no disponible
                 if (product.stock <= 0) {
                     product.isAvailable = false;
                 }
-
-                // Guardamos los cambios del producto en MongoDB
                 await product.save();
             }
         }
@@ -37,13 +31,11 @@ router.post('/', authMiddleware, async (req, res) => {
         const newOrder = {
             buyerId: userId,
             buyerEmail: email,
-            items: items, // La lista de productos del carrito
+            items: items,
             orderTotal: orderTotal,
             status: 'Pendiente',
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
         };
-
-        // Añadimos el nuevo pedido a la colección 'orders' en Firestore
         await db.collection('orders').add(newOrder);
 
         // --- PARTE 3: Vaciar el carrito en Firestore ---
@@ -52,7 +44,6 @@ router.post('/', authMiddleware, async (req, res) => {
         const deletePromises = cartSnapshot.docs.map(doc => doc.ref.delete());
         await Promise.all(deletePromises);
 
-        // Si todo sale bien, enviamos una respuesta de éxito
         res.status(201).json({ message: 'Pedido creado exitosamente' });
 
     } catch (error) {
@@ -60,5 +51,46 @@ router.post('/', authMiddleware, async (req, res) => {
         res.status(500).json({ message: 'Error en el servidor al procesar el pedido.' });
     }
 });
+
+
+// --- NUEVA RUTA: OBTENER DETALLES DE UN PEDIDO ESPECÍFICO ---
+// GET /api/orders/:orderId
+router.get('/:orderId', authMiddleware, async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const userId = req.user.userId;
+
+        const orderRef = db.collection('orders').doc(orderId);
+        const doc = await orderRef.get();
+
+        if (!doc.exists) {
+            return res.status(404).json({ message: "Pedido no encontrado." });
+        }
+
+        const orderData = doc.data();
+
+        // Verificación de seguridad: solo el comprador o un vendedor involucrado puede ver el pedido
+        const isBuyer = orderData.buyerId === userId;
+        const isSellerInvolved = orderData.items.some(item => item.sellerId === userId);
+
+        if (!isBuyer && !isSellerInvolved) {
+            return res.status(403).json({ message: "No tienes permiso para ver este pedido." });
+        }
+
+        // Convertimos el timestamp a un formato legible antes de enviarlo
+        const finalOrderData = {
+            ...orderData,
+            id: doc.id,
+            createdAt: orderData.createdAt.toDate().toISOString()
+        };
+
+        res.status(200).json(finalOrderData);
+
+    } catch (error) {
+        console.error("Error al obtener detalles del pedido:", error);
+        res.status(500).json({ message: "Error en el servidor al obtener el pedido." });
+    }
+});
+
 
 module.exports = router;
